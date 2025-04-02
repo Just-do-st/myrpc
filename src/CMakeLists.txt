@@ -1,4 +1,9 @@
 #aux_source_directory(. SRC_LIST)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)  # 设置静态库路径
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)  # 设置动态库路径
+
+
 set(SRC_LIST 
     mprpcapplication.cc 
     rpcprovider.cc 

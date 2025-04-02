@@ -1,4 +1,6 @@
-# set(SRC_LIST userservice.cc ../user.pb.cc)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/../bin)
+
 set(SRC_LIST friendservice.cc ../friend.pb.cc)
 
 add_executable(provider ${SRC_LIST})
