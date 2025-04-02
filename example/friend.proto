@@ -22,7 +22,7 @@ message GetFriendsListResponse
 }
 
 // 好友模块
-service FiendServiceRpc
+service FriendServiceRpc
 {
     rpc GetFriendsList(GetFriendsListRequest) returns(GetFriendsListResponse);
 }

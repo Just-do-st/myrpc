@@ -7,7 +7,7 @@
 #include "logger.h"
 // #include "logger.h"
 
-class FriendService : public fixbug::FiendServiceRpc {
+class FriendService : public fixbug::FriendServiceRpc {
  public:
   std::vector<std::string> GetFriendsList(uint32_t userid) {
     std::cout << "do GetFriendsList service! userid:" << userid << std::endl;

@@ -60,7 +60,7 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   std::cout << "rpc_header_str: " << rpc_header_str << std::endl;
   std::cout << "service_name: " << service_name << std::endl;
   std::cout << "method_name: " << method_name << std::endl;
-  std::cout << "args_str: " << args_str << std::endl;
+  std::cout << "args_size: " << args_size << std::endl;
   std::cout << "============================================" << std::endl;
 
   // 使用tcp编程，完成rpc方法的远程调用
@@ -122,8 +122,6 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   }
 
   // 接收rpc请求的响应值
-
-  close(clientfd);
 
   if (done == nullptr) {
     char recv_buf[1024] = {0};

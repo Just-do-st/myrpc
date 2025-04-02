@@ -1,4 +1,5 @@
 #include "mprpcapplication.h"
+#include "logger.h"
 #include <iostream>
 #include <unistd.h>
 #include <string>
@@ -37,11 +38,12 @@ void MprpcApplication::Init(int argc, char **argv) {
   // zookepper_port=
   m_config.LoadConfigFile(config_file.c_str());
 
-  // std::cout << "rpcserverip:" << m_config.Load("rpcserverip") << std::endl;
-  // std::cout << "rpcserverport:" << m_config.Load("rpcserverport") <<
-  // std::endl; std::cout << "zookeeperip:" << m_config.Load("zookeeperip") <<
-  // std::endl; std::cout << "zookeeperport:" << m_config.Load("zookeeperport")
-  // << std::endl;
+  LOG_INFO("LoadConfigFile Success!");
+  LOG_INFO("rpcserver_ip: %s", m_config.Load("rpcserverip").c_str());
+  LOG_INFO("rpcserver_port: %s", m_config.Load("rpcserverport").c_str());
+  LOG_INFO("zookeeper_ip: %s", m_config.Load("zookeeperip").c_str());
+  LOG_INFO("zookeeper_port: %s", m_config.Load("zookeeperport").c_str());
+
 }
 
 MprpcApplication &MprpcApplication::GetInstance() {
