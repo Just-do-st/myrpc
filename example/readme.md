@@ -18,3 +18,5 @@ sudo systemctl stop zookeeper
 # start example
 ./provider -i ~/myrpc/example/callee/callee.conf
 ./consumer -i ~/myrpc/example/caller/caller.conf 
+
+/usr/share/zookeeper/bin/zkCli.sh

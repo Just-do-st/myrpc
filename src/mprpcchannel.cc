@@ -9,6 +9,111 @@
 #include <errno.h>
 #include "mprpcapplication.h"
 #include "zookeeperutil.h"
+#include "Cache.h"
+#include <random>
+
+// 递归获取并输出服务的所有IP地址
+// void get_and_print_ips(zhandle_t *zh, const char *path) {
+//   struct String_vector children;
+//   int rc = zoo_get_children(zh, path, 0, &children);  // 获取子节点列表
+//   if (rc == ZOK) {
+//     std::cout << "Service: " << path << " contains IPs:" << std::endl;
+//     for (int i = 0; i < children.count; ++i) {
+//       std::string child_path = std::string(path) + "/" +
+//       children.data[i]; char        buffer[1024]; int         buffer_len
+//       = sizeof(buffer); struct Stat stat; int         rc_data =
+//           zoo_get(zh, child_path.c_str(), 0, buffer, &buffer_len, &stat);
+//       if (rc_data == ZOK) {
+//         std::string node_data(buffer, buffer_len);
+//         std::cout << "  - " << child_path << ": " << node_data <<
+//         std::endl;
+//       } else {
+//         std::cerr << "Failed to get data from node " << child_path
+//                   << ", error: " << rc_data << std::endl;
+//       }
+//     }
+//     deallocate_String_vector(&children);  // 释放子节点列表内存
+//   } else {
+//     std::cerr << "Failed to get children of " << path << ", error: " <<
+//     rc
+//               << std::endl;
+//   }
+// }
+
+// Watcher回调函数
+std::string extract_ip_from_data(const char *data, int data_len) {
+  if (!data || data_len <= 0) return "";  // 数据为空时返回空字符串
+  return std::string(data, data_len);     // 假设数据内容直接是IP地址
+}
+
+void UpdateAddrCache(std::string                       service_name,
+                     std::unordered_set<std::string> &&ips_found) {
+  CacheManager &C = CacheManager::getInstance();
+  C.set_service_IP(service_name, std::move(ips_found));
+}
+
+// 获取子节点并注册Watcher
+void watch_node_change(zhandle_t *zh, const char *path) {
+  std::string service_name(path + 1);
+
+  // 1. 获取最新节点列表, 同时再注册watcher
+
+  struct String_vector children;
+  int rc = zoo_wget_children(zh, path, watcher_children, nullptr, &children);
+  if (rc == ZOK) {  // 服务发现
+    char                            buffer[256];
+    int                             buffer_len = sizeof(buffer);
+    std::unordered_set<std::string> ips_found;
+
+    std::cout << "methods of service " << path << ":" << std::endl;
+    // 遍历子节点，获取每个子节点的数据（IP地址）
+    for (int i = 0; i < children.count; ++i) {
+      std::string method = std::string(path) + "/" + children.data[i];
+
+      int data_rc =
+          zoo_get(zh, method.c_str(), 0, buffer, &buffer_len, nullptr);
+      if (data_rc == ZOK) {
+        std::string ip = extract_ip_from_data(buffer, buffer_len);
+        if (!ip.empty()) {
+          std::cout << "  - ip of " << method << " is " << ip << std::endl;
+          ips_found.insert(ip);  // 将提取的IP地址加入新IP集合
+        }
+      } else {
+        std::cerr << "Failed to get data for node: " << method << std::endl;
+      }
+    }
+
+    // 2. 更新缓存
+
+    UpdateAddrCache(service_name, std::move(ips_found));
+
+    deallocate_String_vector(&children);
+  } else {
+    std::cerr << "Failed to get children of service " << path
+              << ", error: " << rc << std::endl;
+  }
+}
+
+void watcher_children(zhandle_t *zh, int type, int state, const char *path,
+                      void *watcherCtx) {
+  if (type == ZOO_CHILD_EVENT) { watch_node_change(zh, path); }
+}
+
+// 构造函数, zk连接
+MprpcChannel::MprpcChannel(const std::string &service_name)
+    : service_name(service_name) {
+  zkCli.Start();  // 连接zk,注册监听
+
+  // 监听 /services 服务下,方法和节点IP变化, 删除缓存
+  watch_node_change(zkCli.get_zhandle_t(), ("/" + service_name).c_str());
+}
+
+std::unordered_set<std::string> MprpcChannel::GetAddrfromCache(
+    const std::string &service) {
+  CacheManager &C = CacheManager::getInstance();
+  // 已经拷贝的结果避免二次拷贝
+  return std::move(C.get_service_IP(service));
+}
 
 /*
 header_size + service_name method_name args_size + args
@@ -78,12 +183,31 @@ void MprpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
   // port =
   // atoi(MprpcApplication::GetInstance().GetConfig().Load("rpcserverport").c_str());
   // rpc调用方想调用service_name的method_name服务，需要查询zk上该服务所在的host信息
-  ZkClient zkCli;
-  zkCli.Start();
-  //  /UserServiceRpc/Login
   std::string method_path = "/" + service_name + "/" + method_name;
+
+  // Use cache. if in map?
+  CacheManager                   &C = CacheManager::getInstance();
+  std::unordered_set<std::string> addrs = C.get_service_IP(method_path);
+
+  // TODO: do load balance
+  std::string                     host_data;
+  std::unordered_set<std::string> IPs = GetAddrfromCache(service_name);
+
+  if (!IPs.empty()) {
+    // return one IP
+    // 1. 随机选择负载均衡
+    static std::random_device       rd;
+    static std::mt19937             gen(rd());
+    std::uniform_int_distribution<> dis(0, IPs.size() - 1);
+
+    auto it = IPs.begin();
+    std::advance(it, dis(gen));  // 移动迭代器到随机位置
+    host_data = *it;
+  } else {
+    host_data = zkCli.GetData(method_path.c_str());
+  }
+
   // 127.0.0.1:8000
-  std::string host_data = zkCli.GetData(method_path.c_str());
   if (host_data == "") {
     controller->SetFailed(method_path + " is not exist!");
     return;

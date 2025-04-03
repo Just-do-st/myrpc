@@ -11,32 +11,15 @@ void global_watcher(zhandle_t *zh, int type, int state, const char *path,
     if (state == ZOO_CONNECTED_STATE)  // zkclient和zkserver连接成功
     {
       sem_t *sem = (sem_t *)zoo_get_context(zh);
-      // 将信号量加 1，解除阻塞。
-      sem_post(sem);
-    }
-  }
-
-  // 缓存机制
-  if (type == ZOO_CHILD_EVENT) {
-    std::cout << "Service list changed, updating..." << std::endl;
-
-    // 获取最新的服务实例列表
-    struct String_vector children;
-    if (zoo_get_children(zh, path, 1, &children) == ZOK) {
-      std::cout << "Available instances:" << std::endl;
-      for (int i = 0; i < children.count; i++) {
-        std::string instance_path = std::string(path) + "/" + children.data[i];
-
-        char buffer[128];
-        int  buffer_len = sizeof(buffer);
-        if (zoo_get(zh, instance_path.c_str(), 0, buffer, &buffer_len,
-                    nullptr) == ZOK) {
-          std::cout << "  - " << buffer << std::endl;
-        }
+      if (sem) {
+        // 将信号量加 1，解除阻塞。
+        sem_post(sem);
+      } else {
+        std::cerr << "Error: watcher context is NULL!" << std::endl;
       }
-      deallocate_String_vector(&children);
     }
   }
+
 }
 
 ZkClient::ZkClient() : m_zhandle(nullptr) {
@@ -111,4 +94,8 @@ std::string ZkClient::GetData(const char *path) {
   } else {
     return buffer;
   }
+}
+
+zhandle_t *ZkClient::get_zhandle_t() {
+  return this->m_zhandle;
 }

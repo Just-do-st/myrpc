@@ -81,6 +81,8 @@ void RpcProvider::Run() {
       // If ZOO_EPHEMERAL flag is set, the node will automatically get removed
       // if the
       //  * client session goes away.
+      std::cout << "注册临时节点 path=" << method_path
+                << " value=" << method_path_data << std::endl;
       zkCli.Create(method_path.c_str(), method_path_data,
                    strlen(method_path_data), ZOO_EPHEMERAL);
     }

@@ -16,6 +16,8 @@ class ZkClient {
   // 根据参数指定的znode节点路径，或者znode节点的值
   std::string GetData(const char *path);
 
+  zhandle_t *get_zhandle_t();
+
  private:
   // zk的客户端句柄
   zhandle_t *m_zhandle;
